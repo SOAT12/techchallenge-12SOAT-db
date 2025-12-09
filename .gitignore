@@ -1,24 +1,29 @@
-# Compiled class file
-*.class
+# --- Terraform ---
+# Diretório local onde o Terraform baixa os plugins/providers
+.terraform/
 
-# Log file
-*.log
+# Arquivos de Estado (MUITO IMPORTANTE: Contêm senhas não criptografadas)
+*.tfstate
+*.tfstate.*
 
-# BlueJ files
-*.ctxt
+# Arquivos de Variáveis (MUITO IMPORTANTE: Se usar para passar credenciais)
+*.tfvars
+*.auto.tfvars
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Arquivos de falha/crash logs
+crash.log
+crash.*.log
 
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
+# Arquivos de override (configurações locais temporárias)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# CLI Configuration
+.terraformrc
+terraform.rc
+
+# --- IDEs / Editores (Opcional mas recomendado) ---
+.vscode/
+*.swp
