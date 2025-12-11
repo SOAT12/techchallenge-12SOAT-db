@@ -27,3 +27,4 @@ terraform.rc
 # --- IDEs / Editores (Opcional mas recomendado) ---
 .vscode/
 *.swp
+*.ps1
