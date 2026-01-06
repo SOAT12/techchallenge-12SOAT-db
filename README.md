@@ -76,6 +76,7 @@ Para executar este projeto localmente, você precisa:
 ## 💻 Como Executar Localmente
 
 ### 1. Clonar o repositório
-```bash
-git clone [https://github.com/SOAT12/techchallenge-12SOAT-db.git](https://github.com/SOAT12/techchallenge-12SOAT-db.git)
-cd techchallenge-12SOAT-db
+```
+    git clone https://github.com/SOAT12/techchallenge-12SOAT-db.git
+```
+
