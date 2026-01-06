@@ -1,0 +1,92 @@
+name: 'Terraform Infrastructure'
+
+on:
+  push:
+    branches: [ "main", "feature/implement_terraforms" ]
+  pull_request:
+
+  # 1. GATILHO MANUAL (ADICIONADO)
+  workflow_dispatch:
+    inputs:
+      action_type:
+        description: 'Selecione a ação (apply ou destroy)'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    environment: AWS_SECRET_ACCESS_KEY
+
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.action_type == 'apply'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
+
+      - name: Terraform Plan
+        run: terraform plan -var="db_password=${{ secrets.DB_PASSWORD }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
+
+      - name: Terraform Apply
+        # O apply continua rodando APENAS em push para as branches especificadas
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/implement_terraforms') && github.event_name == 'push'
+        run: terraform apply -var="db_password=${{ secrets.DB_PASSWORD }}" -auto-approve
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
+
+  # ---------------------------------------------------------------------- #
+  # JOB DE DESTRUIÇÃO (ACIONALMENTE MANUAL E CONDICIONAL)
+  # ---------------------------------------------------------------------- #
+  destroy:
+    name: 'Terraform Destroy'
+    runs-on: ubuntu-latest
+    environment: AWS_SECRET_ACCESS_KEY
+
+    # Roda APENAS quando for acionado manualmente e a opção 'destroy' for selecionada
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action_type == 'destroy'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -var="db_password=${{ secrets.DB_PASSWORD }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
