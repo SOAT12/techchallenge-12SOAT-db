@@ -12,3 +12,8 @@ output "db_name" {
   description = "Nome do banco de dados"
   value       = aws_db_instance.postgres.db_name
 }
+
+output "secret_name" {
+  description = "Nome fixo do Segredo para configurar na API"
+  value       = aws_secretsmanager_secret.db_credentials.name
+}

@@ -27,7 +27,7 @@ resource "aws_subnet" "subnet_b" {
 
 # Grupo de Subnets para o RDS
 resource "aws_db_subnet_group" "db_subnet_group" {
-  name       = "techchallenge-db-subnet-group"
+  name       = "techchallenge-db-subnet-group-v2"
   subnet_ids = [aws_subnet.subnet_a.id, aws_subnet.subnet_b.id]
 
   tags = {
@@ -86,12 +86,13 @@ resource "aws_db_instance" "postgres" {
   allocated_storage    = 20
   db_name              = var.db_name
   engine               = "postgres"
-  engine_version       = "17.4"
+  engine_version       = "17"
   instance_class       = "db.t3.micro"
   username             = var.db_username
   password             = var.db_password
   parameter_group_name = "default.postgres17"
   skip_final_snapshot  = true
+  final_snapshot_identifier = "ignore"
   publicly_accessible  = true
 
   db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
@@ -102,23 +103,33 @@ resource "aws_db_instance" "postgres" {
   }
 }
 
-# --- 4. Armazenamento do Estado (S3) ---
-# Cria um bucket para guardar o estado do Terraform
-resource "aws_s3_bucket" "terraform_state" {
-  # MUDE O NOME ABAIXO PARA ALGO ÚNICO NO MUNDO
-  bucket = "techchallenge-fase3-terraform-state-seunome"
+# --- 4. Secrets Manager (Gerenciamento de Senhas) ---
 
-  force_destroy = true # Permite apagar o bucket mesmo com arquivos (útil para Academy)
+# Cria o container do segredo com NOME FIXO
+resource "aws_secretsmanager_secret" "db_credentials" {
+  name = "techchallenge-db-credentials"
+
+  recovery_window_in_days = 0
 
   tags = {
-    Name = "Terraform State Bucket"
+    Name        = "Credenciais Banco TechChallenge"
+    Environment = "Production"
   }
 }
 
-# Habilita versionamento (segurança para não perder o arquivo de estado)
-resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
-  bucket = aws_s3_bucket.terraform_state.id
-  versioning_configuration {
-    status = "Enabled"
-  }
+resource "aws_secretsmanager_secret_version" "db_credentials_val" {
+  secret_id = aws_secretsmanager_secret.db_credentials.id
+
+  secret_string = jsonencode({
+    username            = var.db_username
+    password            = var.db_password
+    engine              = "postgres"
+    host                = aws_db_instance.postgres.address
+    port                = aws_db_instance.postgres.port
+    dbname              = aws_db_instance.postgres.db_name
+    dbInstanceIdentifier = aws_db_instance.postgres.identifier
+
+    # URL JDBC completa para facilitar a vida do desenvolvedor Java
+    jdbc_url            = "jdbc:postgresql://${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
+  })
 }
