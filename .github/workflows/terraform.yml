@@ -52,7 +52,9 @@ jobs:
 
       - name: Terraform Apply
         # O apply continua rodando APENAS em push para as branches especificadas
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/implement_terraforms') && github.event_name == 'push'
+        if: >
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/implement_terraforms')) ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action_type == 'apply')
         run: terraform apply -var="db_password=${{ secrets.DB_PASSWORD }}" -auto-approve
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
