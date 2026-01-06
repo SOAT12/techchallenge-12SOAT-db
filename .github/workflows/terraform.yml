@@ -1,15 +1,15 @@
 name: 'Terraform Infrastructure'
 
 on:
+  # Gatilho automático ao dar push na main ou na feature branch
   push:
     branches: [ "main", "feature/implement_terraforms" ]
-  pull_request:
 
-  # 1. GATILHO MANUAL (ADICIONADO)
+  # Gatilho MANUAL (O "Botão Mágico")
   workflow_dispatch:
     inputs:
-      action_type:
-        description: 'Selecione a ação (apply ou destroy)'
+      action:
+        description: 'Ação do Terraform'
         required: true
         default: 'apply'
         type: choice
@@ -21,9 +21,6 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: AWS_SECRET_ACCESS_KEY
-
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.action_type == 'apply'
 
     steps:
       - name: Checkout
@@ -32,60 +29,38 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
 
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
       - name: Terraform Init
         run: terraform init
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # AWS_SESSION_TOKEN removido pois você está em conta Real
           AWS_REGION: 'us-east-1'
 
+      # --- PLAN (Roda sempre no apply ou push para validação) ---
       - name: Terraform Plan
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
         run: terraform plan -var="db_password=${{ secrets.DB_PASSWORD }}"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: 'us-east-1'
 
+      # --- APPLY (Cria o banco) ---
       - name: Terraform Apply
-        # O apply continua rodando APENAS em push para as branches especificadas
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/implement_terraforms') && github.event_name == 'push'
+        # Roda se for Push na Main OU se você escolheu "apply" manualmente
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
         run: terraform apply -var="db_password=${{ secrets.DB_PASSWORD }}" -auto-approve
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: 'us-east-1'
 
-  # ---------------------------------------------------------------------- #
-  # JOB DE DESTRUIÇÃO (ACIONALMENTE MANUAL E CONDICIONAL)
-  # ---------------------------------------------------------------------- #
-  destroy:
-    name: 'Terraform Destroy'
-    runs-on: ubuntu-latest
-    environment: AWS_SECRET_ACCESS_KEY
-
-    # Roda APENAS quando for acionado manualmente e a opção 'destroy' for selecionada
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action_type == 'destroy'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
-
-      - name: Terraform Init
-        run: terraform init
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-east-1'
-
+      # --- DESTROY (Apaga o banco - CUIDADO!) ---
       - name: Terraform Destroy
-        run: terraform destroy -auto-approve -var="db_password=${{ secrets.DB_PASSWORD }}"
+        # Só roda se você escolheu explicitamente "destroy" no botão manual
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+        run: terraform destroy -var="db_password=${{ secrets.DB_PASSWORD }}" -auto-approve
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
