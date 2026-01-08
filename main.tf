@@ -15,14 +15,14 @@ resource "aws_subnet" "subnet_a" {
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = "${var.aws_region}a"
-  tags = { Name = "subnet-db-a" }
+  tags              = { Name = "subnet-db-a" }
 }
 
 resource "aws_subnet" "subnet_b" {
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "${var.aws_region}b"
-  tags = { Name = "subnet-db-b" }
+  tags              = { Name = "subnet-db-b" }
 }
 
 # Grupo de Subnets para o RDS
@@ -35,7 +35,7 @@ resource "aws_db_subnet_group" "db_subnet_group" {
   }
 }
 
-# Gateway de Internet (para permitir que o Terraform acesse a VPC se necessário, e para atualizações)
+# Gateway de Internet (para permitir que o Terraform acesse a VPC se necessário e para atualizações)
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.main_vpc.id
 }
@@ -83,17 +83,17 @@ resource "aws_security_group" "rds_sg" {
 
 # --- 3. Instância RDS (PostgreSQL) ---
 resource "aws_db_instance" "postgres" {
-  allocated_storage    = 20
-  db_name              = var.db_name
-  engine               = "postgres"
-  engine_version       = "17"
-  instance_class       = "db.t3.micro"
-  username             = var.db_username
-  password             = var.db_password
-  parameter_group_name = "default.postgres17"
-  skip_final_snapshot  = true
+  allocated_storage         = 20
+  db_name                   = var.db_name
+  engine                    = "postgres"
+  engine_version            = "17"
+  instance_class            = "db.t3.micro"
+  username                  = var.db_username
+  password                  = var.db_password
+  parameter_group_name      = "default.postgres17"
+  skip_final_snapshot       = true
   final_snapshot_identifier = "ignore"
-  publicly_accessible  = true
+  publicly_accessible       = true
 
   db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
@@ -121,15 +121,15 @@ resource "aws_secretsmanager_secret_version" "db_credentials_val" {
   secret_id = aws_secretsmanager_secret.db_credentials.id
 
   secret_string = jsonencode({
-    username            = var.db_username
-    password            = var.db_password
-    engine              = "postgres"
-    host                = aws_db_instance.postgres.address
-    port                = aws_db_instance.postgres.port
-    dbname              = aws_db_instance.postgres.db_name
+    username             = var.db_username
+    password             = var.db_password
+    engine               = "postgres"
+    host                 = aws_db_instance.postgres.address
+    port                 = aws_db_instance.postgres.port
+    dbname               = aws_db_instance.postgres.db_name
     dbInstanceIdentifier = aws_db_instance.postgres.identifier
 
     # URL JDBC completa para facilitar a vida do desenvolvedor Java
-    jdbc_url            = "jdbc:postgresql://${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
+    jdbc_url = "jdbc:postgresql://${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
   })
 }
