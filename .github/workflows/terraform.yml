@@ -4,10 +4,9 @@ run-name: 'Terraform: ${{ github.event.inputs.action_type || github.event_name }
 
 on:
   push:
-    branches: [ "main"]
+    branches: [ "main" ]
   pull_request:
-
-  # 1. GATILHO MANUAL (ADICIONADO)
+    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       action_type:
@@ -19,59 +18,104 @@ on:
           - apply
           - destroy
 
+permissions:
+  contents: read
+  pull-requests: write # Necessário para o bot comentar o Plan no PR
+
 jobs:
   terraform:
-    name: 'Terraform'
+    name: 'Terraform Plan & Apply'
     runs-on: ubuntu-latest
-    environment: AWS_SECRET_ACCESS_KEY
+    # Define o ambiente apenas se for aplicar mudanças (segurança extra)
+    environment: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action_type == 'apply')) && 'production' || null }}
 
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.action_type == 'apply'
+    # Executa se NÃO for destroy manual
+    if: github.event.inputs.action_type != 'destroy'
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: 'us-east-1'
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }} # Mapeia variável de ambiente para var do Terraform automaticamente
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v3
 
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # 1. Verificação de Formatação (Boa prática de código)
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check
 
+      # 2. Validação da Sintaxe e Configuração
       - name: Terraform Init
+        id: init
         run: terraform init
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-east-1'
 
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      # 3. Planejamento (Roda em PRs e na Main)
       - name: Terraform Plan
-        run: terraform plan -var="db_password=${{ secrets.DB_PASSWORD }}"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-east-1'
+        id: plan
+        if: github.event_name == 'pull_request'
+        run: terraform plan -no-color -input=false
+        continue-on-error: true # Permite que o script abaixo rode mesmo se houver falhas no plan para notificar
 
-      - name: Terraform Apply
-        # O apply continua rodando APENAS em push para as branches especificadas
-        if: >
-          (github.event_name == 'push' && (github.ref == 'refs/heads/main')) ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.action_type == 'apply')
-        run: terraform apply -var="db_password=${{ secrets.DB_PASSWORD }}" -auto-approve
+      # 4. Comentário no PR (Requisito: Evidência de mudanças antes do merge)
+      - name: Update Pull Request
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-east-1'
+          PLAN: "${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`terraform
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      # 5. Aplicação (Apenas na Main ou Manual Apply)
+      - name: Terraform Apply
+        if: >
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action_type == 'apply')
+        run: terraform apply -auto-approve -input=false
 
   # ---------------------------------------------------------------------- #
-  # JOB DE DESTRUIÇÃO (ACIONALMENTE MANUAL E CONDICIONAL)
+  # JOB DE DESTRUIÇÃO (MANUAL)
   # ---------------------------------------------------------------------- #
   destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
-    environment: AWS_SECRET_ACCESS_KEY
+    environment: production
 
-    # Roda APENAS quando for acionado manualmente e a opção 'destroy' for selecionada
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.action_type == 'destroy'
 
     steps:
@@ -79,7 +123,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
