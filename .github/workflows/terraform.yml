@@ -20,7 +20,7 @@ on:
           - destroy
 
 jobs:
-  terraform:
+  apply:
     name: 'Terraform'
     runs-on: ubuntu-latest
     environment: AWS_SECRET_ACCESS_KEY
