@@ -75,8 +75,52 @@ Para executar este projeto localmente, você precisa:
 
 ## 💻 Como Executar Localmente
 
-### 1. Clonar o repositório
+### 4.  Executar arquivo para setar as váriaveis localmente
 ```
+    .\update_creds.ps1
+```
+1. **Clonar o repositório:**
+    ```bash
     git clone https://github.com/SOAT12/techchallenge-12SOAT-db.git
-```
+    ```
+2. **Criar bucket na AWS e alterar no arquivo providers.tf o seu devido nome:**
+    ```bash
+    bucket = "techchallenge-soat12-db-state-db"
+    ```
 
+3. **Criar arquivo update_creds.ps1 ou semelhante:**
+   Este comando é utilizado para salvar as variáveis AWS_ACCESS_KEY_ID E AWS_SECRET_ACCESS_KEY da AWS.
+    ```bash
+    $Env:AWS_ACCESS_KEY_ID="TOKEN"
+    $Env:AWS_SECRET_ACCESS_KEY="TOKEN"
+    Write-Host "Credenciais atualizadas com sucesso!"
+    ```
+   
+3. **Executar arquivo para setar as váriaveis localmente:**
+    ```bash
+    .\update_creds.ps1
+    ```
+   
+4. **Inicialize o Terraform:**
+   Este comando prepara o diretório de trabalho, baixando os provedores necessários e configurando o backend.
+    ```bash
+    terraform init
+    ```
+
+5. **Valide a configuração:**
+   Este comando faz uma verificação de sanidade para garantir que a sintaxe dos seus arquivos de configuração está tecnicamente correta.
+    ```bash
+    terraform validate
+    ```
+
+6.  **Gere um plano de execução:**
+    Este comando cria um plano que permite visualizar as alterações (criações, atualizações, destruições) que o Terraform fará na infraestrutura. É um passo crucial para revisar e garantir que as mudanças estão corretas antes de aplicá-las.
+    ```bash
+    terraform plan
+    ```
+
+7.  **Aplique a configuração para criar a infraestrutura:**
+    Após revisar o plano e confirmar que as alterações estão corretas, execute este comando para aplicar as mudanças. Você precisará digitar `yes` para confirmar e provisionar a infraestrutura.
+    ```bash
+    terraform apply
+    ```
