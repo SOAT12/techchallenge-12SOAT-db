@@ -28,9 +28,8 @@ A infraestrutura provisionada inclui:
 5.  **S3 Backend:** O estado do Terraform (`.tfstate`) é armazenado remotamente em um bucket S3 para garantir consistência e trabalho em equipe.
 
 > **Diagrama da Infraestrutura:**
->
-> ![Diagrama Infra](https://link-para-sua-imagem-aqui.com)
-> *(Insira aqui o link da imagem do diagrama se tiver, ou coloque o arquivo na pasta /docs)*
+> 
+> <img src="docs/diagrama.png" alt="Fluxo do deploy" width="700"/>
 
 ---
 
